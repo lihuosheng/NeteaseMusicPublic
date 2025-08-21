@@ -67,8 +67,6 @@ python main.py --mode api
 - 访问接口：http://ip:port/类型解析
 - 支持 GET 和 POST 请求
 
----
-
 #### API 启动生产模式
 
 ##### Windows 下用 waitress
@@ -146,7 +144,7 @@ gunicorn -w 4 -b 0.0.0.0:5000 main:app
 
 ## 反馈与交流
 
-- 在 Github [Issues](https://github.com/lihuosheng/NeteaseMusicPublic/issues) 提交反馈
+- 在 Github [Issues](https://github.com/lihuosheng/NeteaseMusic/issues) 提交反馈
 
 ---
 
