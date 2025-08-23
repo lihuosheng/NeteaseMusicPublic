@@ -46,7 +46,7 @@ def posts(url, params, cookie):
     response = requests.post(url, headers=headers, cookies=cookies, data={"params": params})
     return response  # 修改为返回完整的 response 对象
 
-def url_v1(id, level, cookies):
+def url_v1(song_id, level, cookies):
     url = "https://interface3.music.163.com/eapi/song/enhance/player/url/v1"
     AES_KEY = b"e82ckenh8dichen8"
     config = {
@@ -58,7 +58,7 @@ def url_v1(id, level, cookies):
     }
 
     payload = {
-        'ids': [id],
+        'ids': [song_id],
         'level': level,
         'encodeType': 'flac',
         'header': json.dumps(config),
@@ -79,45 +79,90 @@ def url_v1(id, level, cookies):
     response = post(url, params, cookies)
     return json.loads(response)
 
-def name_v1(id):
+def name_v1(song_id):
     urls = "https://interface3.music.163.com/api/v3/song/detail"
-    data = {'c': json.dumps([{"id":id,"v":0}])}
+    data = {'c': json.dumps([{"id":song_id,"v":0}])}
     response = requests.post(url=urls, data=data)
     return response.json()
 
-def lyric_v1(id, cookies):
+def lyric_v1(song_id, cookies):
     url = "https://interface3.music.163.com/api/song/lyric"
-    data = {'id': id, 'cp': 'false', 'tv': '0', 'lv': '0', 'rv': '0', 'kv': '0', 'yv': '0', 'ytv': '0', 'yrv': '0'}
+    data = {'id': song_id, 'cp': 'false', 'tv': '0', 'lv': '0', 'rv': '0', 'kv': '0', 'yv': '0', 'ytv': '0', 'yrv': '0'}
     response = requests.post(url=url, data=data, cookies=cookies)
     return response.json()
 
-def search_music(keywords, cookies, limit=10):
+def artist_top(artist_id, cookies):
+    url = "https://interface3.music.163.com/api/artist/top/song"
+    data = {'id': artist_id}
+    response = requests.post(url=url, data=data, cookies=cookies)
+    res_json = response.json()
+    songs = res_json.get('songs', [])
+    
+    for index, song in enumerate(songs):
+        song['artists'] = '/'.join(artist['name'] for artist in song['ar'])
+    
+    return res_json
+
+def search_info(cookies, keywords, search_type, limit, offset):
     """
-    网易云音乐搜索接口，返回歌曲信息列表
+    网易云音乐搜索接口，返回信息列表
     :param keywords: 搜索关键词
     :param cookies: 登录 cookies
+    :param search_type: 1: 单曲, 10: 专辑, 100: 歌手, 1000: 歌单, 1002: 用户, 1004: MV, 1006: 歌词, 1009: 电台, 1014: 视频, 1018:综合, 2000:声音(搜索声音返回字段格式会不一样)
     :param limit: 返回数量
-    :return: 歌曲信息列表
+    :param offset: 返回偏移
+    :return: 信息列表
     """
     url = 'https://music.163.com/api/cloudsearch/pc'
-    data = {'s': keywords, 'type': 1, 'limit': limit}
+    data = {
+        's': keywords,
+        'type': search_type,
+        'limit': limit,
+        'offset': offset,
+        'total': True,        
+        }
     headers = {
         'User-Agent': 'Mozilla/5.0',
         'Referer': 'https://music.163.com/'
     }
     response = requests.post(url, data=data, headers=headers, cookies=cookies)
-    result = response.json()
-    songs = []
-    for item in result.get('result', {}).get('songs', []):
-        song_info = {
-            'id': item['id'],
-            'name': item['name'],
-            'artists': '/'.join(artist['name'] for artist in item['ar']),
-            'album': item['al']['name'],
-            'picUrl': item['al']['picUrl']
-        }
-        songs.append(song_info)
-    return songs
+    res_json = response.json()
+    
+    if int(search_type) == 1 or int(search_type) == 1006:
+        songs = res_json.get('result', {}).get('songs', [])
+        
+        for index, song in enumerate(songs):
+            song['artists'] = '/'.join(artist['name'] for artist in song['ar'])
+    
+    return res_json
+#     result = response.json()
+# #     print(f"result: {result}")
+#     songs = result.get('result', {}).get('songs', [])
+#     albums = result.get('result', {}).get('albums', [])
+#     artists = result.get('result', {}).get('artists', [])
+#     playlists = result.get('result', {}).get('playlists', [])
+#     userprofiles = result.get('result', {}).get('userprofiles', [])
+#     mvs = result.get('result', {}).get('mvs', [])
+#     djRadios = result.get('result', {}).get('djRadios', [])
+#     videos = result.get('result', {}).get('videos', [])
+# #     print(f"songs: {songs}\nalbums: {albums}\nartists: {artists}\nplaylists: {playlists}\nuserprofiles: {userprofiles}")
+# #     print(f"mvs: {mvs}\ndjRadios: {djRadios}\nvideos: {videos}")
+#     for info in [songs, albums, artists, playlists, userprofiles, mvs, djRadios, videos]:
+#         if info:
+#             return info
+#     return response.json()
+
+#     songs = []
+#     for item in result.get('result', {}).get('songs', []):
+#         song_info = {
+#             'id': item['id'],
+#             'name': item['name'],
+#             'artists': '/'.join(artist['name'] for artist in item['ar']),
+#             'album': item['al']['name'],
+#             'picUrl': item['al']['picUrl']
+#         }
+#         songs.append(song_info)
+#     return songs
 
 def playlist_detail(playlist_id, cookies):
     """

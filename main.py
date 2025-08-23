@@ -1,7 +1,7 @@
 import argparse
 import os
 from flask import Flask, request, render_template, redirect, jsonify
-from music_api import url_v1, name_v1, lyric_v1, search_music, playlist_detail, album_detail
+from music_api import url_v1, name_v1, lyric_v1, artist_top, search_info, playlist_detail, album_detail
 from cookie_manager import CookieManager
 
 # ================= 工具函数 =================
@@ -80,7 +80,7 @@ def Song_v1():
         song_id = ids(jsondata)
         urlv1 = url_v1(song_id, level, cookies)
         if not urlv1['data'] or urlv1['data'][0]['url'] is None:
-            return jsonify({"status": 400, 'msg': '信息获取不完整！'}), 400
+            return jsonify({"code": 400, 'msg': '信息获取不完整！'}), 400
         namev1 = name_v1(urlv1['data'][0]['id'])
         lyricv1 = lyric_v1(urlv1['data'][0]['id'], cookies)
         song_data = urlv1['data'][0]
@@ -91,19 +91,15 @@ def Song_v1():
         song_alname = song_info.get('al', {}).get('name', '')
         song_alid = song_info.get('al', {}).get('id', '')
         # 歌手名拼接
-        artist_names = []
-        for song in namev1['songs']:
-            ar_list = song.get('ar', [])
-            if ar_list:
-                artist_names.append('/'.join(ar['name'] for ar in ar_list))
-        song_arname = ', '.join(artist_names)
+        song_arname = '/'.join(artist['name'] for artist in song_info['ar'])
+        song_arid = ', '.join(str(artist['id']) for artist in song_info['ar'])
         # 歌词
         lrc = lyricv1.get('lrc', {}).get('lyric', '')
         tlyric = lyricv1.get('tlyric', {}).get('lyric', '')
         romalrc = lyricv1.get('romalrc', {}).get('lyric', '')
         klyric = lyricv1.get('klyric', {}).get('lyric', '')
     except Exception as e:
-        return jsonify({'status': 500, 'msg': f'服务异常: {str(e)}'}), 500
+        return jsonify({'code': 500, 'msg': f'服务异常: {str(e)}'}), 500
 
     # 响应类型
     if type_ == 'text':
@@ -112,10 +108,11 @@ def Song_v1():
         data = redirect(song_url)
     elif type_ == 'json':
         data = {
-            "status": 200,
+            "code": 200,
             "name": song_name,
             "pic": song_picUrl,
             "ar_name": song_arname,
+            "ar_id": song_arid,
             "al_name": song_alname,
             "al_id": song_alid,
             "level": music_level1(song_data["level"]),
@@ -128,25 +125,48 @@ def Song_v1():
         }
         data = jsonify(data)
     else:
-        data = jsonify({"status": 400, 'msg': '解析失败！请检查参数是否完整！'}), 400
+        data = jsonify({"code": 400, 'msg': '解析失败！请检查参数是否完整！'}), 400
     return data
+    
+@app.route('/Artist', methods=['GET', 'POST'])
+def artist():
+    if request.method == 'GET':
+        artist_id = request.args.get('id')
+    else:
+        artist_id = request.form.get('id')
+
+    # 参数校验
+    if not artist_id:
+        return jsonify({'error': '必须提供 id 或 url 参数'}), 400
+    cookies = cm.parse_cookie(cm.read_cookie())
+    
+    try:
+        artist_id = ids(artist_id)
+        info = artist_top(artist_id, cookies)
+        return jsonify(info)
+    except Exception as e:
+        return jsonify({"code": 400, 'msg': '解析失败！请检查参数是否完整！'}), 400
 
 @app.route('/Search', methods=['GET', 'POST'])
 def search():
     if request.method == 'GET':
-        keywords = request.args.get('keywords')
-        limit = request.args.get('limit', default=10, type=int)
+        keywords = request.args.get('s')
+        search_type = request.args.get('type', default=1, type=int)
+        limit = request.args.get('limit', default=20, type=int)
+        offset = request.args.get('offset', default=0, type=int)
     else:
-        keywords = request.form.get('keywords')
-        limit = int(request.form.get('limit', 10))
+        keywords = request.form.get('s')
+        search_type = int(request.form.get('type', 1))
+        limit = int(request.form.get('limit', 20))
+        offset = int(request.form.get('offset', 0))
     if not keywords:
         return jsonify({'error': '必须提供 keywords 参数'}), 400
     cookies = cm.parse_cookie(cm.read_cookie())
     try:
-        songs = search_music(keywords, cookies, limit=limit)
-        return jsonify({'status': 200, 'result': songs})
+        info = search_info(cookies, keywords, search_type, limit, offset)
+        return jsonify(info)
     except Exception as e:
-        return jsonify({'status': 500, 'msg': f'搜索异常: {str(e)}'}), 500
+        return jsonify({'code': 500, 'msg': f'搜索异常: {str(e)}'}), 500
 
 @app.route('/Playlist', methods=['GET', 'POST'])
 def playlist():
@@ -158,10 +178,11 @@ def playlist():
         return jsonify({'error': '必须提供歌单id参数'}), 400
     cookies = cm.parse_cookie(cm.read_cookie())
     try:
+        playlist_id = ids(playlist_id)
         info = playlist_detail(playlist_id, cookies)
-        return jsonify({'status': 200, 'playlist': info})
+        return jsonify({'code': 200, 'playlist': info})
     except Exception as e:
-        return jsonify({'status': 500, 'msg': f'歌单解析异常: {str(e)}'}), 500
+        return jsonify({'code': 500, 'msg': f'歌单解析异常: {str(e)}'}), 500
 
 @app.route('/Album', methods=['GET', 'POST'])
 def album():
@@ -173,10 +194,11 @@ def album():
         return jsonify({'error': '必须提供专辑id参数'}), 400
     cookies = cm.parse_cookie(cm.read_cookie())
     try:
+        album_id = ids(album_id)
         info = album_detail(album_id, cookies)
-        return jsonify({'status': 200, 'album': info})
+        return jsonify({'code': 200, 'album': info})
     except Exception as e:
-        return jsonify({'status': 500, 'msg': f'专辑解析异常: {str(e)}'}), 500
+        return jsonify({'code': 500, 'msg': f'专辑解析异常: {str(e)}'}), 500
 
 # ================= 命令行启动 =================
 def start_gui(url: str = None, level: str = 'lossless'):
