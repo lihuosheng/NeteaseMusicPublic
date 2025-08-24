@@ -1380,10 +1380,6 @@
                     return;
                 }
                 
-                // 支持直接粘贴专辑链接
-                // const idMatch = aid.match(/album\?id=(\d+)/);
-                // if (idMatch) aid = idMatch[1];
-                
                 showLoading('album-result');
                 $('#album-result').removeClass('d-none');
                 
@@ -1469,10 +1465,6 @@
                     return;
                 }
                 
-                // 支持直接粘贴歌单链接
-                // const idMatch = pid.match(/playlist\?id=(\d+)/);
-                // if (idMatch) pid = idMatch[1];
-                
                 showLoading('playlist-result');
                 $('#playlist-result').removeClass('d-none');
                 
@@ -1513,9 +1505,9 @@
             // 搜索功能
             $('#search-btn').on('click', function() {
                 const keywords = $('#search_keywords').val().trim();
-                const search_type = $('#search_type').val().trim();
-                const limit = $('#search_limit').val().trim();
-                const offset = $('#offset').val().trim();
+                const search_type = $('#search_type').val();
+                const limit = $('#search_limit').val();
+                const offset = $('#offset').val();
                 
                 if (!keywords) {
                     showToast('请输入搜索关键词', 'warning');
